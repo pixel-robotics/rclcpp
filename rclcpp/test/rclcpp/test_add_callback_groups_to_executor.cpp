@@ -49,8 +49,7 @@ public:
 using ExecutorTypes =
   ::testing::Types<
   rclcpp::executors::SingleThreadedExecutor,
-  rclcpp::executors::MultiThreadedExecutor,
-  rclcpp::executors::StaticSingleThreadedExecutor>;
+  rclcpp::executors::MultiThreadedExecutor>;
 
 class ExecutorTypeNames
 {
@@ -65,10 +64,6 @@ public:
 
     if (std::is_same<T, rclcpp::executors::MultiThreadedExecutor>()) {
       return "MultiThreadedExecutor";
-    }
-
-    if (std::is_same<T, rclcpp::executors::StaticSingleThreadedExecutor>()) {
-      return "StaticSingleThreadedExecutor";
     }
 
     return "";
