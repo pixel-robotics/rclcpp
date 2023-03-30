@@ -23,6 +23,7 @@
 
 #include "rcl/allocator.h"
 #include "rcl/error_handling.h"
+#include "rclcpp/executors/executor_notify_waitable.hpp"
 #include "rclcpp/subscription_wait_set_mask.hpp"
 #include "rcpputils/scope_exit.hpp"
 
@@ -46,6 +47,11 @@ Executor::Executor(const rclcpp::ExecutorOptions & options)
 : spinning(false),
   interrupt_guard_condition_(options.context),
   shutdown_guard_condition_(std::make_shared<rclcpp::GuardCondition>(options.context)),
+  notify_waitable_(std::make_shared<rclcpp::executors::ExecutorNotifyWaitable>(
+      [this]() {
+        this->collect_entities();
+      })),
+  collector_(notify_waitable_),
   wait_set_(std::make_shared<rclcpp::WaitSet>())
 {
   // Store the context for later use.
@@ -59,39 +65,45 @@ Executor::Executor(const rclcpp::ExecutorOptions & options)
       }
     });
 
-  this->collector_.get_executor_notify_waitable()->add_guard_condition(
-      &interrupt_guard_condition_);
-  this->collector_.get_executor_notify_waitable()->add_guard_condition(
-      shutdown_guard_condition_.get());
+  notify_waitable_->add_guard_condition(&interrupt_guard_condition_);
+  notify_waitable_->add_guard_condition(shutdown_guard_condition_.get());
 }
 
 Executor::~Executor()
 {
-    current_collection_.update_timers({},
-      [this](auto timer){wait_set_->add_timer(timer);},
-      [this](auto timer){wait_set_->remove_timer(timer);});
+  current_collection_.timers.update(
+    {},
+    [this](auto timer) {wait_set_->add_timer(timer);},
+    [this](auto timer) {wait_set_->remove_timer(timer);});
 
-    current_collection_.update_subscriptions({},
-      [this](auto subscription){
-        wait_set_->add_subscription(subscription, kDefaultSubscriptionMask);},
-      [this](auto subscription){
-        wait_set_->remove_subscription(subscription, kDefaultSubscriptionMask);});
+  current_collection_.subscriptions.update(
+    {},
+    [this](auto subscription) {
+      wait_set_->add_subscription(subscription, kDefaultSubscriptionMask);
+    },
+    [this](auto subscription) {
+      wait_set_->remove_subscription(subscription, kDefaultSubscriptionMask);
+    });
 
-    current_collection_.update_clients({},
-      [this](auto client){wait_set_->add_client(client);},
-      [this](auto client){wait_set_->remove_client(client);});
+  current_collection_.clients.update(
+    {},
+    [this](auto client) {wait_set_->add_client(client);},
+    [this](auto client) {wait_set_->remove_client(client);});
 
-    current_collection_.update_services({},
-      [this](auto service){wait_set_->add_service(service);},
-      [this](auto service){wait_set_->remove_service(service);});
+  current_collection_.services.update(
+    {},
+    [this](auto service) {wait_set_->add_service(service);},
+    [this](auto service) {wait_set_->remove_service(service);});
 
-    current_collection_.update_guard_conditions({},
-      [this](auto guard_condition){wait_set_->add_guard_condition(guard_condition);},
-      [this](auto guard_condition){wait_set_->remove_guard_condition(guard_condition);});
+  current_collection_.guard_conditions.update(
+    {},
+    [this](auto guard_condition) {wait_set_->add_guard_condition(guard_condition);},
+    [this](auto guard_condition) {wait_set_->remove_guard_condition(guard_condition);});
 
-    current_collection_.update_waitables({},
-      [this](auto waitable){wait_set_->add_waitable(waitable);},
-      [this](auto waitable){wait_set_->remove_waitable(waitable);});
+  current_collection_.waitables.update(
+    {},
+    [this](auto waitable) {wait_set_->add_waitable(waitable);},
+    [this](auto waitable) {wait_set_->remove_waitable(waitable);});
 
   // Remove shutdown callback handle registered to Context
   if (!context_->remove_on_shutdown_callback(shutdown_callback_handle_)) {
@@ -129,15 +141,14 @@ Executor::add_callback_group(
   (void) node_ptr;
   this->collector_.add_callback_group(group_ptr);
 
-  if (notify)
-  {
+  if (notify) {
     // Interrupt waiting to handle removed callback group
     try {
       interrupt_guard_condition_.trigger();
     } catch (const rclcpp::exceptions::RCLError & ex) {
       throw std::runtime_error(
-                std::string(
-                  "Failed to trigger guard condition on callback group add: ") + ex.what());
+              std::string(
+                "Failed to trigger guard condition on callback group add: ") + ex.what());
     }
   }
 }
@@ -146,15 +157,14 @@ void
 Executor::add_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_ptr, bool notify)
 {
   this->collector_.add_node(node_ptr);
-  if (notify)
-  {
+  if (notify) {
     // Interrupt waiting to handle removed callback group
     try {
       interrupt_guard_condition_.trigger();
     } catch (const rclcpp::exceptions::RCLError & ex) {
       throw std::runtime_error(
-                std::string(
-                  "Failed to trigger guard condition on callback group remove: ") + ex.what());
+              std::string(
+                "Failed to trigger guard condition on callback group remove: ") + ex.what());
     }
   }
 }
@@ -166,15 +176,14 @@ Executor::remove_callback_group(
 {
   this->collector_.remove_callback_group(group_ptr);
 
-  if (notify)
-  {
+  if (notify) {
     // Interrupt waiting to handle removed callback group
     try {
       interrupt_guard_condition_.trigger();
     } catch (const rclcpp::exceptions::RCLError & ex) {
       throw std::runtime_error(
-                std::string(
-                  "Failed to trigger guard condition on callback group remove: ") + ex.what());
+              std::string(
+                "Failed to trigger guard condition on callback group remove: ") + ex.what());
     }
   }
 }
@@ -183,18 +192,6 @@ void
 Executor::add_node(std::shared_ptr<rclcpp::Node> node_ptr, bool notify)
 {
   this->add_node(node_ptr->get_node_base_interface(), notify);
-
-  if (notify)
-  {
-    // Interrupt waiting to handle removed callback group
-    try {
-      interrupt_guard_condition_.trigger();
-    } catch (const rclcpp::exceptions::RCLError & ex) {
-      throw std::runtime_error(
-                std::string(
-                  "Failed to trigger guard condition on node add: ") + ex.what());
-    }
-  }
 }
 
 void
@@ -202,15 +199,14 @@ Executor::remove_node(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node
 {
   this->collector_.remove_node(node_ptr);
 
-  if (notify)
-  {
+  if (notify) {
     // Interrupt waiting to handle removed callback group
     try {
       interrupt_guard_condition_.trigger();
     } catch (const rclcpp::exceptions::RCLError & ex) {
       throw std::runtime_error(
-                std::string(
-                  "Failed to trigger guard condition on callback group add: ") + ex.what());
+              std::string(
+                "Failed to trigger guard condition on callback group add: ") + ex.what());
     }
   }
 }
@@ -356,16 +352,10 @@ Executor::execute_any_executable(AnyExecutable & any_exec)
   if (any_exec.waitable) {
     any_exec.waitable->execute(any_exec.data);
   }
+
   // Reset the callback_group, regardless of type
-  any_exec.callback_group->can_be_taken_from().store(true);
-  // Wake the wait, because it may need to be recalculated or work that
-  // was previously blocked is now available.
-  try {
-    interrupt_guard_condition_.trigger();
-  } catch (const rclcpp::exceptions::RCLError & ex) {
-    throw std::runtime_error(
-            std::string(
-              "Failed to trigger guard condition from execute_any_executable: ") + ex.what());
+  if (any_exec.callback_group) {
+    any_exec.callback_group->can_be_taken_from().store(true);
   }
 }
 
@@ -506,47 +496,65 @@ Executor::execute_client(
 }
 
 void
+Executor::collect_entities()
+{
+  std::lock_guard<std::mutex> guard(mutex_);
+
+  rclcpp::executors::ExecutorEntitiesCollection collection;
+  this->collector_.update_collections();
+  auto callback_groups = this->collector_.get_all_callback_groups();
+  rclcpp::executors::build_entities_collection(callback_groups, collection);
+
+  auto notify_waitable = std::static_pointer_cast<rclcpp::Waitable>(notify_waitable_);
+  collection.waitables.insert({notify_waitable.get(), {notify_waitable, {}}});
+
+  current_collection_.timers.update(
+    collection.timers,
+    [this](auto timer) {wait_set_->add_timer(timer);},
+    [this](auto timer) {wait_set_->remove_timer(timer);});
+
+  current_collection_.subscriptions.update(
+    collection.subscriptions,
+    [this](auto subscription) {
+      wait_set_->add_subscription(subscription, kDefaultSubscriptionMask);
+    },
+    [this](auto subscription) {
+      wait_set_->remove_subscription(subscription, kDefaultSubscriptionMask);
+    });
+
+  current_collection_.clients.update(
+    collection.clients,
+    [this](auto client) {wait_set_->add_client(client);},
+    [this](auto client) {wait_set_->remove_client(client);});
+
+  current_collection_.services.update(
+    collection.services,
+    [this](auto service) {wait_set_->add_service(service);},
+    [this](auto service) {wait_set_->remove_service(service);});
+
+  current_collection_.guard_conditions.update(
+    collection.guard_conditions,
+    [this](auto guard_condition) {wait_set_->add_guard_condition(guard_condition);},
+    [this](auto guard_condition) {wait_set_->remove_guard_condition(guard_condition);});
+
+  current_collection_.waitables.update(
+    collection.waitables,
+    [this](auto waitable) {wait_set_->add_waitable(waitable);},
+    [this](auto waitable) {wait_set_->remove_waitable(waitable);});
+}
+
+void
 Executor::wait_for_work(std::chrono::nanoseconds timeout)
 {
   TRACEPOINT(rclcpp_executor_wait_for_work, timeout.count());
-  {
-    std::lock_guard<std::mutex> guard(mutex_);
 
-    rclcpp::executors::ExecutorEntitiesCollection collection;
-    auto callback_groups =  this->collector_.get_all_callback_groups();
-    rclcpp::executors::build_entities_collection(callback_groups, collection);
-
-    current_collection_.update_timers(collection.timers,
-      [this](auto timer){wait_set_->add_timer(timer);},
-      [this](auto timer){wait_set_->remove_timer(timer);});
-
-    current_collection_.update_subscriptions(collection.subscriptions,
-      [this](auto subscription){
-        wait_set_->add_subscription(subscription, kDefaultSubscriptionMask);},
-      [this](auto subscription){
-        wait_set_->remove_subscription(subscription, kDefaultSubscriptionMask);});
-
-    current_collection_.update_clients(collection.clients,
-      [this](auto client){wait_set_->add_client(client);},
-      [this](auto client){wait_set_->remove_client(client);});
-
-    current_collection_.update_services(collection.services,
-      [this](auto service){wait_set_->add_service(service);},
-      [this](auto service){wait_set_->remove_service(service);});
-
-    current_collection_.update_guard_conditions(collection.guard_conditions,
-      [this](auto guard_condition){wait_set_->add_guard_condition(guard_condition);},
-      [this](auto guard_condition){wait_set_->remove_guard_condition(guard_condition);});
-
-    current_collection_.update_waitables(collection.waitables,
-      [this](auto waitable){wait_set_->add_waitable(waitable);},
-      [this](auto waitable){wait_set_->remove_waitable(waitable);});
+  if (current_collection_.empty()) {
+    this->collect_entities();
   }
 
   auto wait_result = wait_set_->wait(timeout);
 
-  if (wait_result.kind() == WaitResultKind::Empty)
-  {
+  if (wait_result.kind() == WaitResultKind::Empty) {
     RCUTILS_LOG_WARN_NAMED(
       "rclcpp",
       "empty wait set received in wait(). This should never happen.");
@@ -562,8 +570,7 @@ Executor::get_next_ready_executable(AnyExecutable & any_executable)
   TRACEPOINT(rclcpp_executor_get_next_ready);
   std::lock_guard<std::mutex> guard{mutex_};
 
-  if (ready_executables_.size() == 0)
-  {
+  if (ready_executables_.size() == 0) {
     return false;
   }
 

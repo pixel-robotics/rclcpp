@@ -30,6 +30,7 @@
 
 #include "rcl/guard_condition.h"
 #include "rcl/wait.h"
+#include "rclcpp/executors/executor_notify_waitable.hpp"
 #include "rcpputils/scope_exit.hpp"
 
 #include "rclcpp/context.hpp"
@@ -484,6 +485,10 @@ protected:
   static void
   execute_client(rclcpp::ClientBase::SharedPtr client);
 
+  RCLCPP_PUBLIC
+  void
+  collect_entities();
+
   /// Block until more work becomes avilable or timeout is reached.
   /**
    * Builds a set of waitable entities, which are passed to the middleware.
@@ -541,6 +546,7 @@ protected:
   virtual void
   spin_once_impl(std::chrono::nanoseconds timeout);
 
+  std::shared_ptr<rclcpp::executors::ExecutorNotifyWaitable> notify_waitable_;
   rclcpp::executors::ExecutorEntitiesCollector collector_;
   rclcpp::executors::ExecutorEntitiesCollection current_collection_;
 

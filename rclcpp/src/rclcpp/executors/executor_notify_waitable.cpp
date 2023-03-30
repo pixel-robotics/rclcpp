@@ -48,6 +48,7 @@ ExecutorNotifyWaitable::add_to_wait_set(rcl_wait_set_t * wait_set)
 bool
 ExecutorNotifyWaitable::is_ready(rcl_wait_set_t * wait_set)
 {
+  std::cout << "ExecutorNotifyWaitable::is_ready" << std::endl;
   std::lock_guard<std::mutex> lock(guard_condition_mutex_);
   for (size_t ii = 0; ii < wait_set->size_of_guard_conditions; ++ii) {
     auto rcl_guard_condition = wait_set->guard_conditions[ii];
@@ -68,6 +69,7 @@ ExecutorNotifyWaitable::is_ready(rcl_wait_set_t * wait_set)
 void
 ExecutorNotifyWaitable::execute(std::shared_ptr<void> & data)
 {
+  std::cout << "ExecutorNotifyWaitable::execute" << std::endl;
   (void) data;
   this->execute_callback_();
 }

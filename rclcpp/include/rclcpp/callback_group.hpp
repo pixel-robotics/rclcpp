@@ -153,10 +153,6 @@ public:
   has_valid_node();
 
   RCLCPP_PUBLIC
-  bool
-  has_valid_node();
-
-  RCLCPP_PUBLIC
   std::atomic_bool &
   can_be_taken_from();
 

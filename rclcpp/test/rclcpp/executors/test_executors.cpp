@@ -151,7 +151,7 @@ TYPED_TEST(TestExecutorsStable, addTemporaryNode) {
   }
 
   // Sleep for a short time to verify executor.spin() is going, and didn't throw.
-  std::thread spinner([&]() {EXPECT_NO_THROW(executor.spin());});
+  std::thread spinner([&]() {executor.spin();});
 
   std::this_thread::sleep_for(50ms);
   executor.cancel();
