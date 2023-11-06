@@ -92,6 +92,8 @@ NodeParameters::NodeParameters(
 
   if (start_parameter_services) {
     parameter_service_ = std::make_shared<ParameterService>(node_base, node_services, this);
+    parameter_service_->set_parameters_service_->configure_introspection(
+      node_clock_->get_clock(), rclcpp::SystemDefaultsQoS(), RCL_SERVICE_INTROSPECTION_CONTENTS);
   }
 
   if (start_parameter_event_publisher) {

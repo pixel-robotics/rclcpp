@@ -60,12 +60,12 @@ public:
     const std::shared_ptr<node_interfaces::NodeServicesInterface> node_services,
     rclcpp::node_interfaces::NodeParametersInterface * node_params,
     const rclcpp::QoS & qos_profile = rclcpp::ParametersQoS());
+  rclcpp::Service<rcl_interfaces::srv::SetParameters>::SharedPtr set_parameters_service_;
 
 private:
   rclcpp::Service<rcl_interfaces::srv::GetParameters>::SharedPtr get_parameters_service_;
   rclcpp::Service<rcl_interfaces::srv::GetParameterTypes>::SharedPtr
     get_parameter_types_service_;
-  rclcpp::Service<rcl_interfaces::srv::SetParameters>::SharedPtr set_parameters_service_;
   rclcpp::Service<rcl_interfaces::srv::SetParametersAtomically>::SharedPtr
     set_parameters_atomically_service_;
   rclcpp::Service<rcl_interfaces::srv::DescribeParameters>::SharedPtr
