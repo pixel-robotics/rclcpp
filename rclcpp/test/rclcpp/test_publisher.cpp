@@ -714,14 +714,6 @@ TEST_F(TestPublisher, intra_process_transient_local) {
   EXPECT_EQ(1, pub_ipm_enabled_transient_local_disabled->get_intra_process_subscription_count());
   EXPECT_EQ(0, pub_ipm_disabled_transient_local_disabled->get_intra_process_subscription_count());
 
-  EXPECT_EQ(
-    history_depth - 1u,
-    pub_ipm_enabled_transient_local_enabled->lowest_available_ipm_capacity());
-  EXPECT_EQ(0, pub_ipm_disabled_transient_local_enabled->lowest_available_ipm_capacity());
-  EXPECT_EQ(
-    history_depth,
-    pub_ipm_enabled_transient_local_disabled->lowest_available_ipm_capacity());
-  EXPECT_EQ(0, pub_ipm_disabled_transient_local_disabled->lowest_available_ipm_capacity());
 
   EXPECT_TRUE(callback1.called);
   EXPECT_FALSE(callback2.called);

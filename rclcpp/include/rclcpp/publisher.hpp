@@ -178,7 +178,7 @@ public:
       }
       if (qos.depth() == 0) {
         throw std::invalid_argument(
-                "intraprocess communication is not allowed with a zero qos history depth value");
+                "intraprocess communication is not allowed with a zero qos history depth value" + topic);
       }
       if (qos.durability() == rclcpp::DurabilityPolicy::TransientLocal) {
         buffer_ = rclcpp::experimental::create_intra_process_buffer<
