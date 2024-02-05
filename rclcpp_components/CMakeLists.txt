@@ -21,6 +21,7 @@ find_package(class_loader REQUIRED)
 find_package(composition_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rcpputils REQUIRED)
+find_package(realtime_tools REQUIRED)
 
 # Add an interface library that can be dependend upon by libraries who register components
 add_library(component INTERFACE)
@@ -45,6 +46,7 @@ ament_target_dependencies(component_manager
   "composition_interfaces"
   "rclcpp"
   "rcpputils"
+  "realtime_tools"
 )
 target_compile_definitions(component_manager
   PRIVATE "RCLCPP_COMPONENTS_BUILDING_LIBRARY")

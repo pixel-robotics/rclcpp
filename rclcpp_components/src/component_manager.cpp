@@ -199,7 +199,7 @@ ComponentManager::set_executor(const std::weak_ptr<rclcpp::Executor> executor)
 }
 
 void
-ComponentManager::add_node_to_executor(uint64_t node_id)
+ComponentManager::add_node_to_executor(uint64_t node_id, bool use_realtime_priority)
 {
   if (auto exec = executor_.lock()) {
     exec->add_node(node_wrappers_[node_id].get_node_base_interface(), true);
@@ -262,7 +262,16 @@ ComponentManager::on_load_node(
         throw ComponentManagerException("Component constructor threw an exception");
       }
 
-      add_node_to_executor(node_id);
+
+      bool use_realtime_priority = false;
+
+      for (rcl_interfaces::msg::Parameter param : request->extra_arguments)
+      {
+        if (param.name == "use_realtime_priority") {
+          use_realtime_priority = param.value.bool_value;
+        }
+      }
+      add_node_to_executor(node_id, use_realtime_priority);
 
       auto node = node_wrappers_[node_id].get_node_base_interface();
       response->full_node_name = node->get_fully_qualified_name();

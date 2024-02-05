@@ -22,8 +22,10 @@
 #include <utility>
 #include <vector>
 #include <unordered_map>
+#include <sys/prctl.h>
 
 #include "rclcpp_components/component_manager.hpp"
+#include "realtime_tools/thread_priority.hpp"
 #include <rclcpp/experimental/executors/events_executor/events_executor.hpp>
 
 using rclcpp::experimental::executors::EventsExecutor;
@@ -70,7 +72,7 @@ protected:
    * \param node_id  node_id of loaded component node in node_wrappers_
    */
   void
-  add_node_to_executor(uint64_t node_id) override
+  add_node_to_executor(uint64_t node_id, bool use_realtime_priority = false) override
   {
     auto exec = std::make_shared<ExecutorT>();
     exec->add_node(node_wrappers_[node_id].get_node_base_interface());
@@ -80,9 +82,18 @@ protected:
     DedicatedExecutorWrapper & wrapper = result.first->second;
     wrapper.executor = exec;
     auto & thread_initialized = wrapper.thread_initialized;
+  
+    const char* node_name = node_wrappers_[node_id].get_node_base_interface()->get_name();
+
     wrapper.thread = std::thread(
-      [exec, &thread_initialized]() {
+      [exec, &thread_initialized, node_name, use_realtime_priority]() {
         thread_initialized = true;
+
+        // Set the process name same as node name
+        prctl(PR_SET_NAME, node_name, 0, 0, 0);
+        if (use_realtime_priority) {
+          realtime_tools::configure_sched_fifo(50);
+        }
         exec->spin();
       });
   }

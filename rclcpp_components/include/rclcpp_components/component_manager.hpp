@@ -155,7 +155,7 @@ protected:
    */
   RCLCPP_COMPONENTS_PUBLIC
   virtual void
-  add_node_to_executor(uint64_t node_id);
+  add_node_to_executor(uint64_t node_id, bool use_realtime_priority = false);
 
   /// Remove component node from executor model, it's invoked in on_unload_node()
   /**
