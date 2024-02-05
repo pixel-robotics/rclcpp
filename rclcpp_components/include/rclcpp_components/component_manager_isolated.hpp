@@ -27,6 +27,8 @@
 #include "rclcpp_components/component_manager.hpp"
 #include "realtime_tools/thread_priority.hpp"
 #include <rclcpp/experimental/executors/events_executor/events_executor.hpp>
+#include <pthread.h>
+
 
 using rclcpp::experimental::executors::EventsExecutor;
 
@@ -93,6 +95,12 @@ protected:
         prctl(PR_SET_NAME, node_name, 0, 0, 0);
         if (use_realtime_priority) {
           realtime_tools::configure_sched_fifo(50);
+          pthread_t thread_id = pthread_self();
+          // Set the CPU affinity to a specific core (replace 0 with the desired core number)
+          cpu_set_t cpuset;
+          CPU_ZERO(&cpuset);
+          CPU_SET(6, &cpuset);  // Set the desired CPU core number
+          int result = pthread_setaffinity_np(thread_id, sizeof(cpu_set_t), &cpuset);
         }
         exec->spin();
       });
