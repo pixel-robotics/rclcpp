@@ -199,7 +199,7 @@ ComponentManager::set_executor(const std::weak_ptr<rclcpp::Executor> executor)
 }
 
 void
-ComponentManager::add_node_to_executor(uint64_t node_id, bool use_realtime_priority)
+ComponentManager::add_node_to_executor(uint64_t node_id, bool)
 {
   if (auto exec = executor_.lock()) {
     exec->add_node(node_wrappers_[node_id].get_node_base_interface(), true);
