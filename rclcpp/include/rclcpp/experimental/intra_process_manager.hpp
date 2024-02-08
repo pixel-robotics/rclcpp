@@ -139,7 +139,7 @@ public:
       }
       if (can_communicate(publisher, subscription)) {
         uint64_t pub_id = pair.first;
-        insert_sub_id_for_pub(sub_id, pub_id, subscription->use_take_shared_method());
+        insert_sub_id_for_pub(sub_id, pub_id, subscription->use_take_shared_method(), subscription->is_serialized());
         if (publisher->is_durability_transient_local() &&
           subscription->is_durability_transient_local())
         {
