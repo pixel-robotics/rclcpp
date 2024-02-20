@@ -219,13 +219,13 @@ Node::create_generic_publisher(
   );
 }
 
-template<typename AllocatorT>
+template<typename CallbackT, typename AllocatorT>
 std::shared_ptr<rclcpp::GenericSubscription>
 Node::create_generic_subscription(
   const std::string & topic_name,
   const std::string & topic_type,
   const rclcpp::QoS & qos,
-  std::function<void(std::shared_ptr<rclcpp::SerializedMessage>)> callback,
+  CallbackT && callback,
   const rclcpp::SubscriptionOptionsWithAllocator<AllocatorT> & options)
 {
   return rclcpp::create_generic_subscription(
@@ -233,7 +233,26 @@ Node::create_generic_subscription(
     extend_name_with_sub_namespace(topic_name, this->get_sub_namespace()),
     topic_type,
     qos,
-    std::move(callback),
+    std::forward<CallbackT>(callback),
+    options
+  );
+}
+
+template<typename CallbackT, typename AllocatorT>
+std::shared_ptr<rclcpp::GenericSubscription>
+Node::create_generic_subscription(
+  const std::string & topic_name,
+  const rosidl_message_type_support_t & type_support_handle,
+  const rclcpp::QoS & qos,
+  CallbackT && callback,
+  const rclcpp::SubscriptionOptionsWithAllocator<AllocatorT> & options)
+{
+  return rclcpp::create_generic_subscription(
+    node_topics_,
+    extend_name_with_sub_namespace(topic_name, this->get_sub_namespace()),
+    type_support_handle,
+    qos,
+    std::forward<CallbackT>(callback),
     options
   );
 }
