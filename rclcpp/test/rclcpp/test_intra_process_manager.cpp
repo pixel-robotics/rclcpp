@@ -24,6 +24,7 @@
 #include "rclcpp/allocator/allocator_common.hpp"
 #include "rclcpp/context.hpp"
 #include "rclcpp/macros.hpp"
+#include "rclcpp/serialized_message.hpp"
 #include "rclcpp/qos.hpp"
 #include "rmw/types.h"
 #include "rmw/qos_profiles.h"
@@ -286,6 +287,23 @@ public:
   is_durability_transient_local() const
   {
     return qos_profile.durability() == rclcpp::DurabilityPolicy::TransientLocal;
+  }
+
+  is_serialized() const
+  {
+    return false;
+  }
+
+  bool
+  serve_serialized_message(
+    const rclcpp::SerializedMessage * /*serialized_message*/,
+    IntraProcessManager * /*intraprocess_manager*/,
+    uint64_t /*intra_process_publisher_id*/,
+    void * /*untyped_allocator*/,
+    const std::vector<uint64_t> & /*take_ownership_subscriptions*/,
+    const std::vector<uint64_t> & /*take_shared_subscriptions*/)
+  {
+    return true;
   }
 
   rclcpp::QoS qos_profile;
