@@ -16,6 +16,7 @@
 #ifndef RCLCPP_COMPONENTS__COMPONENT_MANAGER_ISOLATED_HPP__
 #define RCLCPP_COMPONENTS__COMPONENT_MANAGER_ISOLATED_HPP__
 
+#include <pthread.h>  // Needed for pthread_setname_np
 #include <map>
 #include <memory>
 #include <string>
@@ -73,18 +74,24 @@ protected:
   add_node_to_executor(uint64_t node_id) override
   {
     auto exec = std::make_shared<ExecutorT>();
-    exec->add_node(node_wrappers_[node_id].get_node_base_interface());
+  exec->add_node(node_wrappers_[node_id].get_node_base_interface());
+  std::string node_name = node_wrappers_[node_id].get_node_base_interface()->get_name();
 
-    // Emplace rather than std::move since move operations are deleted for atomics
-    auto result = dedicated_executor_wrappers_.emplace(std::make_pair(node_id, exec));
-    DedicatedExecutorWrapper & wrapper = result.first->second;
-    wrapper.executor = exec;
-    auto & thread_initialized = wrapper.thread_initialized;
-    wrapper.thread = std::thread(
-      [exec, &thread_initialized]() {
-        thread_initialized = true;
-        exec->spin();
-      });
+  auto result = dedicated_executor_wrappers_.emplace(std::make_pair(node_id, exec));
+  DedicatedExecutorWrapper & wrapper = result.first->second;
+  wrapper.executor = exec;
+  auto & thread_initialized = wrapper.thread_initialized;
+
+  wrapper.thread = std::thread(
+    [exec, &thread_initialized, node_name]() {
+      // Truncate to max 15 characters for pthread name
+      char thread_name[16];
+      std::snprintf(thread_name, sizeof(thread_name), "%s", node_name.c_str());
+      pthread_setname_np(pthread_self(), thread_name);
+
+      thread_initialized = true;
+      exec->spin();
+    });
   }
   /// Remove component node from executor model, it's invoked in on_unload_node()
   /**
