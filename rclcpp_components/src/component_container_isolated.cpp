@@ -20,10 +20,6 @@
 #include "rclcpp/utilities.hpp"
 #include "rclcpp_components/component_manager_isolated.hpp"
 
-#include <rclcpp/experimental/executors/events_executor/events_executor.hpp>
-
-using rclcpp::experimental::executors::EventsExecutor;
-
 int main(int argc, char * argv[])
 {
   /// Component container with dedicated single-threaded executors for each components.
@@ -37,7 +33,7 @@ int main(int argc, char * argv[])
     }
   }
   // create executor and component manager
-  auto exec = std::make_shared<EventsExecutor>();
+  auto exec = std::make_shared<rclcpp::executors::SingleThreadedExecutor>();
   rclcpp::Node::SharedPtr node;
   if (use_multi_threaded_executor) {
     using ComponentManagerIsolated =
@@ -45,7 +41,7 @@ int main(int argc, char * argv[])
     node = std::make_shared<ComponentManagerIsolated>(exec);
   } else {
     using ComponentManagerIsolated =
-      rclcpp_components::ComponentManagerIsolated<EventsExecutor>;
+      rclcpp_components::ComponentManagerIsolated<rclcpp::executors::SingleThreadedExecutor>;
     node = std::make_shared<ComponentManagerIsolated>(exec);
   }
   exec->add_node(node);

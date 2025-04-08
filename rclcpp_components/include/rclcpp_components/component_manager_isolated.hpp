@@ -25,15 +25,12 @@
 #include <unordered_map>
 
 #include "rclcpp_components/component_manager.hpp"
-#include <rclcpp/experimental/executors/events_executor/events_executor.hpp>
-
-using rclcpp::experimental::executors::EventsExecutor;
 
 
 namespace rclcpp_components
 {
 /// ComponentManagerIsolated uses dedicated single-threaded executors for each components.
-template<typename ExecutorT = EventsExecutor>
+template<typename ExecutorT = rclcpp::executors::SingleThreadedExecutor>
 class ComponentManagerIsolated : public rclcpp_components::ComponentManager
 {
   using rclcpp_components::ComponentManager::ComponentManager;
