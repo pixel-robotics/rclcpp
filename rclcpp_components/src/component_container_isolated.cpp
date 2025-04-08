@@ -19,6 +19,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/utilities.hpp"
 #include "rclcpp_components/component_manager_isolated.hpp"
+#include "cm_executors/events_cbg_executor.hpp"
 
 int main(int argc, char * argv[])
 {
@@ -37,7 +38,7 @@ int main(int argc, char * argv[])
   rclcpp::Node::SharedPtr node;
   if (use_multi_threaded_executor) {
     using ComponentManagerIsolated =
-      rclcpp_components::ComponentManagerIsolated<rclcpp::executors::MultiThreadedExecutor>;
+      rclcpp_components::ComponentManagerIsolated<rclcpp::executors::EventsCBGExecutor>;
     node = std::make_shared<ComponentManagerIsolated>(exec);
   } else {
     using ComponentManagerIsolated =

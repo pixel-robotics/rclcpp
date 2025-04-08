@@ -20,6 +20,7 @@ find_package(class_loader REQUIRED)
 find_package(composition_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rcpputils REQUIRED)
+find_package(cm_executors REQUIRED)
 
 # Add an interface library that can be depended upon by libraries who register components
 add_library(component INTERFACE)
@@ -28,7 +29,8 @@ target_include_directories(component INTERFACE
   "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
 target_link_libraries(component INTERFACE
   class_loader::class_loader
-  rclcpp::rclcpp)
+  rclcpp::rclcpp
+  cm_executors::cm_executors)
 
 add_library(
   component_manager
@@ -46,6 +48,7 @@ target_link_libraries(component_manager PRIVATE
   ament_index_cpp::ament_index_cpp
   class_loader::class_loader
   rcpputils::rcpputils
+  cm_executors::cm_executors
 )
 target_compile_definitions(component_manager
   PRIVATE "RCLCPP_COMPONENTS_BUILDING_LIBRARY")
@@ -54,7 +57,7 @@ add_executable(
   component_container
   src/component_container.cpp
 )
-target_link_libraries(component_container component_manager rclcpp::rclcpp)
+target_link_libraries(component_container component_manager rclcpp::rclcpp cm_executors::cm_executors )
 
 set(node_main_template_install_dir "share/${PROJECT_NAME}")
 install(FILES
@@ -65,13 +68,13 @@ add_executable(
   component_container_mt
   src/component_container_mt.cpp
 )
-target_link_libraries(component_container_mt component_manager rclcpp::rclcpp)
+target_link_libraries(component_container_mt component_manager rclcpp::rclcpp cm_executors::cm_executors)
 
 add_executable(
   component_container_isolated
   src/component_container_isolated.cpp
 )
-target_link_libraries(component_container_isolated component_manager rclcpp::rclcpp)
+target_link_libraries(component_container_isolated component_manager rclcpp::rclcpp cm_executors::cm_executors)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_link_libraries(component_container "stdc++fs")

@@ -54,6 +54,7 @@
 #include "rclcpp/executor.hpp"
 #include "rclcpp/node_options.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "cm_executors/events_cbg_executor.hpp"
 
 #include "rclcpp_components/node_factory.hpp"
 #include "rclcpp_components/visibility_control.hpp"
@@ -100,7 +101,7 @@ public:
   RCLCPP_COMPONENTS_PUBLIC
   ComponentManager(
     std::weak_ptr<rclcpp::Executor> executor =
-    std::weak_ptr<rclcpp::executors::MultiThreadedExecutor>(),
+    std::weak_ptr<rclcpp::executors::EventsCBGExecutor>(),
     std::string node_name = "ComponentManager",
     const rclcpp::NodeOptions & node_options = rclcpp::NodeOptions()
     .start_parameter_services(false)

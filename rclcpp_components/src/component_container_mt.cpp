@@ -23,11 +23,11 @@ int main(int argc, char * argv[])
   /// Component container with a multi-threaded executor.
   rclcpp::init(argc, argv);
 
-  auto exec = std::make_shared<rclcpp::executors::MultiThreadedExecutor>();
+  auto exec = std::make_shared<rclcpp::executors::EventsCBGExecutor>();
   auto node = std::make_shared<rclcpp_components::ComponentManager>();
   if (node->has_parameter("thread_num")) {
     const auto thread_num = node->get_parameter("thread_num").as_int();
-    exec = std::make_shared<rclcpp::executors::MultiThreadedExecutor>(
+    exec = std::make_shared<rclcpp::executors::EventsCBGExecutor>(
       rclcpp::ExecutorOptions{}, thread_num);
     node->set_executor(exec);
   } else {
