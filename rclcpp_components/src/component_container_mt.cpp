@@ -28,10 +28,12 @@ int main(int argc, char * argv[])
   auto node = std::make_shared<rclcpp_components::ComponentManager>();
   if (node->has_parameter("thread_num")) {
     const auto thread_num = node->get_parameter("thread_num").as_int();
+    printf("ComponentContainerMT configured with %ld threads\n", thread_num);
     exec = std::make_shared<rclcpp::executors::EventsCBGExecutor>(
       rclcpp::ExecutorOptions{}, thread_num);
     node->set_executor(exec);
   } else {
+    printf("ComponentContainerMT using default number of threads\n");
     node->set_executor(exec);
   }
   exec->add_node(node);
