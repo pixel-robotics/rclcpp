@@ -17,6 +17,7 @@ endif()
 find_package(ament_cmake_ros REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(class_loader REQUIRED)
+find_package(cm_executors REQUIRED)
 find_package(composition_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rcpputils REQUIRED)
@@ -67,13 +68,13 @@ add_executable(
   component_container_mt
   src/component_container_mt.cpp
 )
-target_link_libraries(component_container_mt component_manager rclcpp::rclcpp)
+target_link_libraries(component_container_mt component_manager rclcpp::rclcpp cm_executors::cm_executors)
 
 add_executable(
   component_container_isolated
   src/component_container_isolated.cpp
 )
-target_link_libraries(component_container_isolated component_manager rclcpp::rclcpp)
+target_link_libraries(component_container_isolated component_manager rclcpp::rclcpp cm_executors::cm_executors)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   target_link_libraries(component_container "stdc++fs")
