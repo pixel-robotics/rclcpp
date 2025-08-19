@@ -20,6 +20,8 @@ find_package(class_loader REQUIRED)
 find_package(composition_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rcpputils REQUIRED)
+find_package(backward_ros REQUIRED)
+
 
 # Add an interface library that can be depended upon by libraries who register components
 add_library(component INTERFACE)
