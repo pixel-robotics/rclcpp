@@ -3,6 +3,23 @@ Changelog for package rclcpp_action
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+28.1.11 (2025-08-06)
+--------------------
+
+28.1.10 (2025-06-23)
+--------------------
+* Replace std::default_random_engine with std::mt19937 (humble) (`#2847 <https://github.com/ros2/rclcpp/issues/2847>`_) (`#2867 <https://github.com/ros2/rclcpp/issues/2867>`_)
+* Added missing chrono includes (`#2854 <https://github.com/ros2/rclcpp/issues/2854>`_) (`#2856 <https://github.com/ros2/rclcpp/issues/2856>`_)
+* Contributors: mergify[bot]
+
+28.1.9 (2025-04-23)
+-------------------
+* fix(rclcpp_action): Fix sleep of expire thread in case of canceled timer (`#2800 <https://github.com/ros2/rclcpp/issues/2800>`_)
+  This fixes a bug, that the expire action thread would not sleep as,
+  the sleep duration was not computed correctly.
+  Co-authored-by: Janosch Machowinski <J.Machowinski@cellumation.com>
+* Contributors: Janosch Machowinski
+
 28.1.8 (2025-04-02)
 -------------------
 * Harden rclcpp_action::convert(). (`#2786 <https://github.com/ros2/rclcpp/issues/2786>`_) (`#2789 <https://github.com/ros2/rclcpp/issues/2789>`_)
