@@ -81,7 +81,7 @@ public:
   rclcpp::Node::SharedPtr node;
   rclcpp::Publisher<test_msgs::msg::Empty>::SharedPtr publisher;
   rclcpp::Subscription<test_msgs::msg::Empty>::SharedPtr subscription;
-  int callback_count;
+  std::atomic<int> callback_count;
 };
 
 template<typename T>
@@ -152,7 +152,7 @@ TYPED_TEST(TestExecutors, spinWithTimer)
   using ExecutorType = TypeParam;
   ExecutorType executor;
 
-  bool timer_completed = false;
+  std::atomic<bool> timer_completed = false;
   auto timer = this->node->create_wall_timer(1ms, [&]() {timer_completed = true;});
   executor.add_node(this->node);
 
@@ -263,7 +263,7 @@ TYPED_TEST(TestExecutors, testSpinUntilFutureCompleteNoTimeout)
       }
     });
 
-  bool spin_exited = false;
+  std::atomic<bool> spin_exited = false;
 
   // Timeout set to negative for no timeout.
   std::thread spinner([&]() {
@@ -300,7 +300,7 @@ TYPED_TEST(TestExecutors, testSpinUntilFutureCompleteWithTimeout)
   ExecutorType executor;
   executor.add_node(this->node);
 
-  bool spin_exited = false;
+  std::atomic<bool> spin_exited = false;
 
   // Needs to run longer than spin_until_future_complete's timeout.
   std::future<void> future = std::async(
@@ -344,7 +344,7 @@ TYPED_TEST(TestExecutors, spinAll)
 
   // Long timeout, but should not block test if spin_all works as expected as we cancel the
   // executor.
-  bool spin_exited = false;
+  std::atomic<bool> spin_exited = false;
   std::thread spinner([&spin_exited, &executor, this]() {
       executor.spin_all(1s);
       executor.remove_node(this->node, true);
@@ -592,7 +592,7 @@ TYPED_TEST(TestExecutors, testSpinUntilFutureCompleteInterrupted)
   ExecutorType executor;
   executor.add_node(this->node);
 
-  bool spin_exited = false;
+  std::atomic<bool> spin_exited = false;
 
   // This needs to block longer than it takes to get to the shutdown call below and for
   // spin_until_future_complete to return
@@ -1093,4 +1093,64 @@ TYPED_TEST(TestExecutors, dropSubscriptionDuringCallback)
   // only one subscriber must have worked, as the other
   // one was deleted during the callback
   ASSERT_TRUE(!sub1_works || !sub2_works);
+}
+
+// Check if services work as expected
+TYPED_TEST(TestExecutors, testService)
+{
+  using ExecutorType = TypeParam;
+
+  ExecutorType executor;
+  executor.add_node(this->node);
+
+  bool spin_exited = false;
+
+  rclcpp::Node::SharedPtr node = this->node;
+
+  const std::string service_name("/test/test_service");
+
+  using Service = test_msgs::srv::Empty;
+
+  std::atomic<bool> gotCallback = false;
+
+  auto service_cb = [&gotCallback](const std::shared_ptr<Service::Request>/*request*/,
+    std::shared_ptr<Service::Response>/*response*/)
+    {
+      gotCallback = true;
+    };
+
+  auto service = node->create_service<Service>(service_name, service_cb, rclcpp::ServicesQoS());
+
+  // Long timeout
+  std::thread spinner([&spin_exited, &executor]() {
+      executor.spin();
+      spin_exited = true;
+    });
+
+  std::this_thread::sleep_for(1ms);
+
+  const std::shared_ptr<Service::Request> req = std::make_shared<Service::Request>();
+
+  auto client = node->create_client<Service>(service_name);
+
+  EXPECT_TRUE(client->wait_for_service(30ms));
+
+  auto handle = client->async_send_request(req);
+
+  auto retCode = handle.wait_for(500ms);
+  EXPECT_EQ(retCode, std::future_status::ready);
+
+  EXPECT_TRUE(gotCallback);
+
+  // Force interruption
+  rclcpp::shutdown();
+
+  // Give it time to exit
+  auto start = std::chrono::steady_clock::now();
+  while (!spin_exited && (std::chrono::steady_clock::now() - start) < 1s) {
+    std::this_thread::sleep_for(1ms);
+  }
+
+  EXPECT_TRUE(spin_exited);
+  spinner.join();
 }
