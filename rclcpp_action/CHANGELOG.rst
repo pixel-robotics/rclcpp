@@ -3,6 +3,12 @@ Changelog for package rclcpp_action
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 
+28.1.22 (2026-08-31)
+--------------------
+
+28.1.21 (2026-06-12)
+--------------------
+
 28.1.20 (2026-06-09)
 --------------------
 * Initialize GenericClient result response offsets (backport `#2790 <https://github.com/ros2/rclcpp/issues/2790>`_) (`#3139 <https://github.com/ros2/rclcpp/issues/3139>`_)
