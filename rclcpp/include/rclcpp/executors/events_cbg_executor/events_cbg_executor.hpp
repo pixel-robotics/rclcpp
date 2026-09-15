@@ -139,6 +139,7 @@ public:
   void
   spin(const std::function<void(const std::exception &)> & exception_handler);
 
+  RCLCPP_PUBLIC
   void
   spin_once(std::chrono::nanoseconds timeout = std::chrono::nanoseconds(-1)) override;
 
@@ -149,10 +150,12 @@ public:
   /**
    * @return true if work was available and executed
    */
+  RCLCPP_PUBLIC
   bool collect_and_execute_ready_events(
     std::chrono::nanoseconds max_duration,
     bool recollect_if_no_work_available);
 
+  RCLCPP_PUBLIC
   void
   spin_all(std::chrono::nanoseconds max_duration) override;
 
@@ -202,8 +205,13 @@ public:
     if (spinning.exchange(true)) {
       throw std::runtime_error("spin_until_future_complete() called while already spinning");
     }
-    RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
-    while (rclcpp::ok(this->context_) && spinning.load()) {
+    RCPPUTILS_SCOPE_EXIT(
+      this->spinning.store(false);
+      this->cancel_requested_.store(false); );
+    if (cancel_requested_.load()) {
+      return FutureReturnCode::INTERRUPTED;
+    }
+    while (rclcpp::ok(this->context_) && !cancel_requested_.load()) {
       // Do one item of work.
       spin_once_internal(timeout_left);
 
@@ -240,6 +248,7 @@ protected:
   void
   run(size_t this_thread_number, bool block_initially);
 
+  RCLCPP_PUBLIC
   void
   run(
     size_t this_thread_number,
@@ -290,6 +299,7 @@ private:
    */
   void trigger_callback_group_sync();
 
+  RCLCPP_PUBLIC
   void spin_once_internal(std::chrono::nanoseconds timeout);
 
   RCLCPP_DISABLE_COPY(EventsCBGExecutor)
@@ -310,7 +320,12 @@ private:
 
   std::atomic_bool needs_callback_group_resync = false;
 
-  /// Spinning state, used to prevent multi threaded calls to spin and to cancel blocking spins.
+  /// Spinning state, used to prevent multi threaded calls to spin.
+  /**
+   * This flag is only set and cleared by the spin functions themselves, so it
+   * stays true until a spin actually returns, even after cancel() was called.
+   * Cancellation is signaled via cancel_requested_ (inherited from Executor).
+   */
   std::atomic_bool spinning;
 
   /// set if we are shutting down.

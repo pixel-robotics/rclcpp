@@ -33,12 +33,17 @@ StaticSingleThreadedExecutor::spin()
   if (spinning.exchange(true)) {
     throw std::runtime_error("spin() called while already spinning");
   }
-  RCPPUTILS_SCOPE_EXIT(this->spinning.store(false); );
+  RCPPUTILS_SCOPE_EXIT(
+    this->spinning.store(false);
+    this->cancel_requested_.store(false););
+  if (cancel_requested_.load()) {
+    return;
+  }
 
   // This is essentially the contents of the rclcpp::Executor::wait_for_work method,
   // except we need to keep the wait result to reproduce the StaticSingleThreadedExecutor
   // behavior.
-  while (rclcpp::ok(this->context_) && spinning.load()) {
+  while (rclcpp::ok(this->context_) && !cancel_requested_.load()) {
     this->spin_once_impl(std::chrono::nanoseconds(-1));
   }
 }
@@ -75,9 +80,14 @@ StaticSingleThreadedExecutor::spin_some_impl(std::chrono::nanoseconds max_durati
   if (spinning.exchange(true)) {
     throw std::runtime_error("spin_some() called while already spinning");
   }
-  RCPPUTILS_SCOPE_EXIT(this->spinning.store(false););
+  RCPPUTILS_SCOPE_EXIT(
+    this->spinning.store(false);
+    this->cancel_requested_.store(false););
+  if (cancel_requested_.load()) {
+    return;
+  }
 
-  while (rclcpp::ok(context_) && spinning.load() && max_duration_not_elapsed()) {
+  while (rclcpp::ok(context_) && !cancel_requested_.load() && max_duration_not_elapsed()) {
     // Get executables that are ready now
     std::lock_guard<std::mutex> guard(mutex_);
 
@@ -98,7 +108,7 @@ StaticSingleThreadedExecutor::spin_some_impl(std::chrono::nanoseconds max_durati
 void
 StaticSingleThreadedExecutor::spin_once_impl(std::chrono::nanoseconds timeout)
 {
-  if (rclcpp::ok(context_) && spinning.load()) {
+  if (rclcpp::ok(context_) && !cancel_requested_.load()) {
     std::lock_guard<std::mutex> guard(mutex_);
     auto wait_result = this->collect_and_wait(timeout);
     if (wait_result.has_value()) {
