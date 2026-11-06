@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstdlib>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -31,6 +32,23 @@
 
 namespace rclcpp
 {
+
+namespace
+{
+// RCLCPP_USE_CLOCK_THREAD=0: no dedicated /clock thread per node even where the NodeOptions
+// ask for one (the default); the node's executor serves the /clock subscription. A process
+// with many sim-time nodes (a component container) otherwise runs one executor thread per
+// node, all waking for every /clock message and contending on the middleware's locks.
+bool clock_thread_enabled()
+{
+  static const bool enabled = [] {
+      const char * value = std::getenv("RCLCPP_USE_CLOCK_THREAD");
+      return value == nullptr || std::string(value) != "0";
+    }();
+  return enabled;
+}
+}  // namespace
+
 
 class ClocksState final
 {
@@ -385,7 +403,7 @@ private:
         });
     }
 
-    if (use_clock_thread_) {
+    if (use_clock_thread_ && clock_thread_enabled()) {
       clock_callback_group_ = node_base_->create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive,
         false
