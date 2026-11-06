@@ -13,8 +13,11 @@
 // limitations under the License.
 
 #include <cstdlib>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -35,18 +38,84 @@ namespace rclcpp
 
 namespace
 {
-// RCLCPP_USE_CLOCK_THREAD=0: no dedicated /clock thread per node even where the NodeOptions
-// ask for one (the default); the node's executor serves the /clock subscription. A process
-// with many sim-time nodes (a component container) otherwise runs one executor thread per
-// node, all waking for every /clock message and contending on the middleware's locks.
-bool clock_thread_enabled()
+// RCLCPP_USE_CLOCK_THREAD, for the nodes whose NodeOptions ask for a clock thread (the default):
+// unset or any other value: one dedicated /clock thread and executor per node (upstream);
+// "shared": one thread and executor per context serve the /clock subscriptions of all its nodes,
+// so a process with many sim-time nodes (a component container) wakes one thread per /clock
+// message instead of one per node, all contending on the middleware's locks;
+// "0": no clock thread, the node's own executor serves /clock (sim time then stands still while
+// a callback of that node blocks, e.g. a tf lookup with a timeout).
+enum class ClockThreadMode {PerNode, Shared, None};
+
+ClockThreadMode clock_thread_mode()
 {
-  static const bool enabled = [] {
+  static const ClockThreadMode mode = [] {
       const char * value = std::getenv("RCLCPP_USE_CLOCK_THREAD");
-      return value == nullptr || std::string(value) != "0";
+      const std::string setting = value ? value : "";
+      if (setting == "0") {
+        return ClockThreadMode::None;
+      }
+      if (setting == "shared") {
+        return ClockThreadMode::Shared;
+      }
+      return ClockThreadMode::PerNode;
     }();
-  return enabled;
+  return mode;
 }
+
+// The executor and thread of RCLCPP_USE_CLOCK_THREAD=shared, one per context, alive while a node
+// of the context uses it.
+class SharedClockExecutor
+{
+public:
+  static std::shared_ptr<SharedClockExecutor> get(const rclcpp::Context::SharedPtr & context)
+  {
+    static std::mutex mutex;
+    static std::map<const rclcpp::Context *, std::weak_ptr<SharedClockExecutor>> instances;
+    std::lock_guard<std::mutex> guard(mutex);
+    std::weak_ptr<SharedClockExecutor> & weak = instances[context.get()];
+    std::shared_ptr<SharedClockExecutor> instance = weak.lock();
+    if (!instance) {
+      instance = std::make_shared<SharedClockExecutor>(context);
+      weak = instance;
+    }
+    return instance;
+  }
+
+  explicit SharedClockExecutor(const rclcpp::Context::SharedPtr & context)
+  {
+    rclcpp::ExecutorOptions options;
+    options.context = context;
+    executor_ = std::make_shared<rclcpp::executors::SingleThreadedExecutor>(options);
+    thread_ = std::thread([this]() {executor_->spin();});
+  }
+
+  ~SharedClockExecutor()
+  {
+    executor_->cancel();
+    if (thread_.get_id() == std::this_thread::get_id()) {
+      thread_.detach();
+    } else if (thread_.joinable()) {
+      thread_.join();
+    }
+  }
+
+  void add(
+    const rclcpp::CallbackGroup::SharedPtr & group,
+    const rclcpp::node_interfaces::NodeBaseInterface::SharedPtr & node)
+  {
+    executor_->add_callback_group(group, node);
+  }
+
+  void remove(const rclcpp::CallbackGroup::SharedPtr & group)
+  {
+    executor_->remove_callback_group(group);
+  }
+
+private:
+  rclcpp::executors::SingleThreadedExecutor::SharedPtr executor_;
+  std::thread thread_;
+};
 }  // namespace
 
 
@@ -365,6 +434,7 @@ private:
   rclcpp::CallbackGroup::SharedPtr clock_callback_group_;
   rclcpp::executors::SingleThreadedExecutor::SharedPtr clock_executor_;
   std::promise<void> cancel_clock_executor_promise_;
+  std::shared_ptr<SharedClockExecutor> shared_clock_executor_;
 
   // The clock callback itself
   void clock_cb(std::shared_ptr<const rosgraph_msgs::msg::Clock> msg)
@@ -403,12 +473,15 @@ private:
         });
     }
 
-    if (use_clock_thread_ && clock_thread_enabled()) {
+    const ClockThreadMode mode = use_clock_thread_ ? clock_thread_mode() : ClockThreadMode::None;
+    if (mode != ClockThreadMode::None) {
       clock_callback_group_ = node_base_->create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive,
         false
       );
       options.callback_group = clock_callback_group_;
+    }
+    if (mode == ClockThreadMode::PerNode) {
       rclcpp::ExecutorOptions exec_options;
       exec_options.context = node_base_->get_context();
       clock_executor_ =
@@ -444,6 +517,11 @@ private:
       },
       options
     );
+
+    if (mode == ClockThreadMode::Shared) {
+      shared_clock_executor_ = SharedClockExecutor::get(node_base_->get_context());
+      shared_clock_executor_->add(clock_callback_group_, node_base_);
+    }
   }
 
   // Destroy the subscription for the clock topic
@@ -455,6 +533,10 @@ private:
       clock_executor_->cancel();
       clock_executor_thread_.join();
       clock_executor_->remove_callback_group(clock_callback_group_);
+    }
+    if (shared_clock_executor_) {
+      shared_clock_executor_->remove(clock_callback_group_);
+      shared_clock_executor_.reset();
     }
     clock_subscription_.reset();
   }
